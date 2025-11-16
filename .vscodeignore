@@ -1,0 +1,30 @@
+.vscode/**
+.vscode-test/**
+src/**
+.gitignore
+.yarnrc
+vsc-extension-quickstart.md
+**/tsconfig.json
+**/eslint.config.mjs
+**/*.map
+**/*.ts
+**/.vscode-test.*
+
+# Exclude all node_modules except essential files
+node_modules/**
+!node_modules/mermaid/dist/mermaid.min.js
+
+# Exclude development dependencies
+**/.eslintrc.json
+**/test/**
+**/tests/**
+**/*.test.js
+**/*.spec.js
+**/.github/**
+**/README.md
+**/CHANGELOG.md
+**/.editorconfig
+**/.prettierrc
+**/package-lock.json
+**/*.d.ts
+**/*.d.ts.map

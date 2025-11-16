@@ -1,0 +1,13 @@
+- [x] Verify that the copilot-instructions.md file in the .github directory is created.
+- [x] Clarify Project Requirements.
+- [x] Scaffold the Project with the Yeoman VS Code extension generator.
+- [x] Customize the Project with the Mermaid preview webview and save-to-disk workflow.
+- [x] Install Required Extensions (none were needed for this workspace).
+- [x] Compile the Project (`npm run compile`, `npm test`).
+- [x] Create and Run Task (existing npm/VS Code tasks already cover build & debug workflows).
+- [x] Launch the Project (instructions provided to use F5 / Extension Development Host).
+- [x] Ensure Documentation is Complete (README updated, instructions cleaned).
+
+- Work through each checklist item systematically.
+- Keep communication concise and focused.
+- Follow development best practices.

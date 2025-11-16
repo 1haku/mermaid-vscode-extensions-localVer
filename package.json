@@ -1,0 +1,53 @@
+{
+  "name": "mermaid",
+  "displayName": "Mermaid プレビューア",
+  "description": "all in local ver. by yibocho",
+  "version": "0.0.1",
+  "publisher": "yibocho",
+  "engines": {
+    "vscode": "^1.106.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "mermaid.previewDiagram",
+        "title": "Mermaid: Preview Diagram"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "mermaid.previewDiagram",
+          "group": "navigation@100",
+          "when": "resourceExtname == .mmd || resourceExtname == .mermaid || editorLangId == markdown"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "@types/vscode": "^1.106.0",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.7.0",
+    "eslint": "^9.39.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.3"
+  },
+  "dependencies": {
+    "mermaid": "^11.12.1"
+  }
+}
