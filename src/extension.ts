@@ -314,6 +314,101 @@ class MermaidPreviewPanel {
 				svg text:has-text("Parse error") {
 					display: none !important;
 				}
+				/* Fullscreen modal */
+				#fullscreen-modal {
+					display: none;
+					position: fixed;
+					top: 0;
+					left: 0;
+					width: 100%;
+					height: 100%;
+					background: rgba(0, 0, 0, 0.9);
+					z-index: 9999;
+					overflow: hidden;
+				}
+				#fullscreen-modal.active {
+					display: block;
+				}
+				#fullscreen-wrapper {
+					position: absolute;
+					top: 0;
+					left: 0;
+					width: 100%;
+					height: 100%;
+					overflow: auto;
+					display: flex;
+					justify-content: center;
+					align-items: center;
+					padding: 100px 2rem 2rem 2rem;
+					box-sizing: border-box;
+					cursor: grab;
+				}
+				#fullscreen-wrapper.dragging {
+					cursor: grabbing;
+					user-select: none;
+				}
+				#fullscreen-content {
+					display: inline-block;
+					background: var(--preview-panel-bg, #ffffff);
+					padding: 2rem;
+					border-radius: 8px;
+					transform-origin: center;
+					transition: transform 0.2s ease;
+					pointer-events: none;
+				}
+				#fullscreen-content svg {
+					display: block;
+					max-width: none;
+					height: auto;
+				}
+				#fullscreen-controls {
+					position: fixed;
+					top: 20px;
+					left: 50%;
+					transform: translateX(-50%);
+					display: flex;
+					gap: 0.5rem;
+					z-index: 10001;
+					background: rgba(0, 0, 0, 0.8);
+					padding: 0.75rem 1rem;
+					border-radius: 8px;
+					box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+				}
+				#fullscreen-controls button {
+					background: var(--preview-button-bg, #0078d4);
+					color: white;
+					border: none;
+					padding: 0.5rem 1rem;
+					border-radius: 4px;
+					cursor: pointer;
+					font-size: 0.9rem;
+				}
+				#fullscreen-controls button:hover {
+					background: var(--preview-button-hover, #005a9e);
+				}
+				#zoom-info {
+					color: white;
+					display: flex;
+					align-items: center;
+					padding: 0 0.5rem;
+					font-size: 0.9rem;
+				}
+				#fullscreen-close {
+					position: fixed;
+					top: 20px;
+					right: 20px;
+					background: #ff4444;
+					color: white;
+					border: none;
+					padding: 0.5rem 1rem;
+					border-radius: 4px;
+					cursor: pointer;
+					font-size: 1rem;
+					z-index: 10000;
+				}
+				#fullscreen-close:hover {
+					background: #cc0000;
+				}
 			</style>
 		</head>
 		<body>
@@ -331,6 +426,7 @@ class MermaidPreviewPanel {
 					</select>
 				</label>
 				<button id="refresh">更新</button>
+				<button id="fullscreen-btn">全画面表示</button>
 					<button id="save-svg">SVG保存</button>
 					<button id="save-png">PNG保存</button>
 				</div>
@@ -339,6 +435,21 @@ class MermaidPreviewPanel {
 			<p class="placeholder">VS Codeで Mermaid 図を編集すると、ここにレンダリング結果が表示されます。</p>
 		</div>
 			<div id="status" class="status" role="status"></div>
+
+			<!-- Fullscreen Modal -->
+			<div id="fullscreen-modal">
+				<div id="fullscreen-controls">
+					<button id="zoom-out">縮小 (−)</button>
+					<span id="zoom-info">100%</span>
+					<button id="zoom-in-fs">拡大 (+)</button>
+					<button id="zoom-reset">リセット</button>
+					<button id="fullscreen-close">✕ 閉じる</button>
+				</div>
+				<div id="fullscreen-wrapper">
+					<div id="fullscreen-content"></div>
+				</div>
+			</div>
+
 			<script nonce="${nonce}" src="${mermaidScript}"></script>
 			<script nonce="${nonce}">
 				const vscode = acquireVsCodeApi();
@@ -494,6 +605,125 @@ class MermaidPreviewPanel {
 
 				document.getElementById('refresh').addEventListener('click', () => {
 					vscode.postMessage({ type: 'requestRefresh' });
+				});
+
+				const fullscreenModal = document.getElementById('fullscreen-modal');
+				const fullscreenContent = document.getElementById('fullscreen-content');
+				const fullscreenBtn = document.getElementById('fullscreen-btn');
+				const fullscreenClose = document.getElementById('fullscreen-close');
+				const zoomInBtn = document.getElementById('zoom-in-fs');
+				const zoomOutBtn = document.getElementById('zoom-out');
+				const zoomResetBtn = document.getElementById('zoom-reset');
+				const zoomInfo = document.getElementById('zoom-info');
+				const fullscreenWrapper = document.getElementById('fullscreen-wrapper');
+
+				let fullscreenZoom = 1;
+				let isDragging = false;
+				let hasDragged = false;
+				let startX = 0;
+				let startY = 0;
+				let scrollLeft = 0;
+				let scrollTop = 0;
+
+				const updateZoom = () => {
+					fullscreenContent.style.transform = \`scale(\${fullscreenZoom})\`;
+					zoomInfo.textContent = \`\${Math.round(fullscreenZoom * 100)}%\`;
+				};
+
+				// Drag to scroll functionality
+				fullscreenWrapper.addEventListener('mousedown', (e) => {
+					if (e.target.closest('#fullscreen-controls')) return;
+					isDragging = true;
+					hasDragged = false;
+					fullscreenWrapper.classList.add('dragging');
+					startX = e.pageX - fullscreenWrapper.offsetLeft;
+					startY = e.pageY - fullscreenWrapper.offsetTop;
+					scrollLeft = fullscreenWrapper.scrollLeft;
+					scrollTop = fullscreenWrapper.scrollTop;
+				});
+
+				fullscreenWrapper.addEventListener('mouseleave', () => {
+					isDragging = false;
+					fullscreenWrapper.classList.remove('dragging');
+				});
+
+				fullscreenWrapper.addEventListener('mouseup', () => {
+					isDragging = false;
+					fullscreenWrapper.classList.remove('dragging');
+				});
+
+				fullscreenWrapper.addEventListener('mousemove', (e) => {
+					if (!isDragging) return;
+					e.preventDefault();
+					const x = e.pageX - fullscreenWrapper.offsetLeft;
+					const y = e.pageY - fullscreenWrapper.offsetTop;
+					const walkX = (x - startX) * 1.5;
+					const walkY = (y - startY) * 1.5;
+					const distance = Math.abs(walkX) + Math.abs(walkY);
+					if (distance > 5) {
+						hasDragged = true;
+					}
+					fullscreenWrapper.scrollLeft = scrollLeft - walkX;
+					fullscreenWrapper.scrollTop = scrollTop - walkY;
+				});
+
+				fullscreenBtn.addEventListener('click', () => {
+					if (!currentSvg) {
+						setStatus('全画面表示する図がありません。', true);
+						return;
+					}
+					fullscreenContent.innerHTML = currentSvg;
+					fullscreenModal.classList.add('active');
+					fullscreenZoom = 1;
+					updateZoom();
+				});
+
+				zoomInBtn.addEventListener('click', () => {
+					if (fullscreenZoom < 5) {
+						fullscreenZoom += 0.25;
+						updateZoom();
+					}
+				});
+
+				zoomOutBtn.addEventListener('click', () => {
+					if (fullscreenZoom > 0.25) {
+						fullscreenZoom -= 0.25;
+						updateZoom();
+					}
+				});
+
+				zoomResetBtn.addEventListener('click', () => {
+					fullscreenZoom = 1;
+					updateZoom();
+				});
+
+				fullscreenClose.addEventListener('click', () => {
+					fullscreenModal.classList.remove('active');
+				});
+
+				fullscreenModal.addEventListener('click', (e) => {
+					if (hasDragged) {
+						hasDragged = false;
+						return;
+					}
+					if (e.target === fullscreenModal || e.target.id === 'fullscreen-wrapper') {
+						fullscreenModal.classList.remove('active');
+					}
+				});
+
+				// Keyboard shortcuts for zoom
+				document.addEventListener('keydown', (e) => {
+					if (!fullscreenModal.classList.contains('active')) return;
+					
+					if (e.key === '+' || e.key === '=') {
+						zoomInBtn.click();
+					} else if (e.key === '-') {
+						zoomOutBtn.click();
+					} else if (e.key === '0') {
+						zoomResetBtn.click();
+					} else if (e.key === 'Escape') {
+						fullscreenClose.click();
+					}
 				});
 
 			document.getElementById('save-svg').addEventListener('click', () => {

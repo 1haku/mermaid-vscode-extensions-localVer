@@ -1,9 +1,13 @@
 {
   "name": "mermaid",
-  "displayName": "Mermaid プレビューア",
-  "description": "all in local ver. by yibocho",
-  "version": "0.0.1",
+  "displayName": "Mermaid Local Previewer",
+  "description": "Local Mermaid diagram previewer with full privacy and export features",
+  "version": "0.0.2",
   "publisher": "yibocho",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/1haku/mermaid-vscode-extensions-localVer.git"
+  },
   "engines": {
     "vscode": "^1.106.0"
   },
