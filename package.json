@@ -2,7 +2,7 @@
   "name": "mermaid",
   "displayName": "Mermaid Local Previewer",
   "description": "Local Mermaid diagram previewer with full privacy and export features",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "yibocho",
   "repository": {
     "type": "git",

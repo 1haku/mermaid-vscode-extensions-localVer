@@ -367,12 +367,15 @@ class MermaidPreviewPanel {
 					left: 50%;
 					transform: translateX(-50%);
 					display: flex;
+					flex-wrap: wrap;
+					justify-content: center;
 					gap: 0.5rem;
 					z-index: 10001;
 					background: rgba(0, 0, 0, 0.8);
-					padding: 0.75rem 1rem;
+					padding: 0.5rem;
 					border-radius: 8px;
 					box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+					max-width: 95vw;
 				}
 				#fullscreen-controls button {
 					background: var(--preview-button-bg, #0078d4);
@@ -382,6 +385,7 @@ class MermaidPreviewPanel {
 					border-radius: 4px;
 					cursor: pointer;
 					font-size: 0.9rem;
+					white-space: nowrap;
 				}
 				#fullscreen-controls button:hover {
 					background: var(--preview-button-hover, #005a9e);
@@ -394,20 +398,10 @@ class MermaidPreviewPanel {
 					font-size: 0.9rem;
 				}
 				#fullscreen-close {
-					position: fixed;
-					top: 20px;
-					right: 20px;
-					background: #ff4444;
-					color: white;
-					border: none;
-					padding: 0.5rem 1rem;
-					border-radius: 4px;
-					cursor: pointer;
-					font-size: 1rem;
-					z-index: 10000;
+					background: #ff4444 !important;
 				}
 				#fullscreen-close:hover {
-					background: #cc0000;
+					background: #cc0000 !important;
 				}
 			</style>
 		</head>
@@ -509,6 +503,10 @@ class MermaidPreviewPanel {
 				};
 
 				const renderDiagram = async (source, skipPersist = false) => {
+					// Cleanup any existing error icons from body immediately
+					const errorSvgs = document.querySelectorAll('body > svg[id*="mermaid"]');
+					errorSvgs.forEach(svg => svg.remove());
+
 					if (!skipPersist) {
 						currentSource = source;
 				}
@@ -743,7 +741,10 @@ class MermaidPreviewPanel {
 				if (!svgElement) {
 					setStatus('エクスポートする SVG が見つかりません。', true);
 					return;
-				}					// Get the bounding box to ensure we capture the full diagram
+				}
+				
+				try {
+					// Get the bounding box to ensure we capture the full diagram
 					const bbox = svgElement.getBBox();
 					const viewBox = svgElement.getAttribute('viewBox');
 					let width = bbox.width;
@@ -761,31 +762,74 @@ class MermaidPreviewPanel {
 					// Use the larger of computed width/height or viewBox dimensions
 					const computedWidth = svgElement.getBoundingClientRect().width;
 					const computedHeight = svgElement.getBoundingClientRect().height;
-					width = Math.max(width, computedWidth);
-					height = Math.max(height, computedHeight);
+					
+					// If width/height are not valid from BBox/ViewBox, use computed
+					if (!width || !height) {
+						width = computedWidth;
+						height = computedHeight;
+					} else {
+						// Ensure we don't cut off if the element is actually rendered larger
+						width = Math.max(width, computedWidth);
+						height = Math.max(height, computedHeight);
+					}
 
-					const svgUrl = 'data:image/svg+xml;base64,' + window.btoa(unescape(encodeURIComponent(currentSvg)));
-					const image = new Image();
-					image.onload = () => {
-						const canvas = document.createElement('canvas');
-						const scale = window.devicePixelRatio || 2; // Use at least 2x for better quality
-						canvas.width = width * scale;
-						canvas.height = height * scale;
-					const ctx = canvas.getContext('2d');
-					if (!ctx) {
-						setStatus('PNG 出力を準備できません。', true);
+					// Validate dimensions
+					if (!width || !height || width <= 0 || height <= 0) {
+						setStatus('PNG 出力エラー: 無効な図のサイズ', true);
 						return;
 					}
-					ctx.scale(scale, scale);
-					ctx.fillStyle = 'white'; // Fill with white background
-					ctx.fillRect(0, 0, width, height);
-					ctx.drawImage(image, 0, 0, width, height);
-					const pngData = canvas.toDataURL('image/png').split(',')[1];
-					vscode.postMessage({ type: 'savePng', base64: pngData });
-				};
-				image.onerror = () => setStatus('PNG 出力を準備できません。', true);
+
+					// Clone the SVG to modify it for export without affecting the preview
+					const clone = svgElement.cloneNode(true);
+					
+					// Explicitly set width/height on the clone to match calculated values
+					// This is crucial for the Image object to render it correctly
+					clone.setAttribute('width', width + 'px');
+					clone.setAttribute('height', height + 'px');
+					
+					// Serialize the clone to a string
+					const svgString = new XMLSerializer().serializeToString(clone);
+
+					const svgUrl = 'data:image/svg+xml;base64,' + window.btoa(unescape(encodeURIComponent(svgString)));
+					const image = new Image();
+					
+					image.onload = () => {
+						try {
+							const canvas = document.createElement('canvas');
+							const scale = window.devicePixelRatio || 2;
+							canvas.width = width * scale;
+							canvas.height = height * scale;
+							
+							const ctx = canvas.getContext('2d');
+							if (!ctx) {
+								setStatus('PNG 出力エラー: Canvas コンテキストを取得できません', true);
+								return;
+							}
+							
+							ctx.scale(scale, scale);
+							ctx.fillStyle = 'white';
+							ctx.fillRect(0, 0, width, height);
+							ctx.drawImage(image, 0, 0, width, height);
+							
+							const pngData = canvas.toDataURL('image/png').split(',')[1];
+							vscode.postMessage({ type: 'savePng', base64: pngData });
+							setStatus('PNG エクスポート準備完了');
+						} catch (err) {
+							setStatus('PNG 出力エラー: ' + (err?.message || '不明なエラー'), true);
+						}
+					};
+					
+					image.onerror = (err) => {
+						setStatus('PNG 出力エラー: 画像の読み込みに失敗しました', true);
+						console.error('Image load error:', err);
+					};
+					
 					image.src = svgUrl;
-				});
+				} catch (err) {
+					setStatus('PNG 出力エラー: ' + (err?.message || '不明なエラー'), true);
+					console.error('PNG export error:', err);
+				}
+			});
 			</script>
 		</body>
 		</html>`;
